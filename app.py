@@ -12,7 +12,7 @@ import time
 import groq
 import numpy as np
 from openai import OpenAI
-from st_audiorec import st_audiorec
+from audio_recorder_streamlit import audio_recorder
 import io
 
 # Load environment variables
@@ -491,9 +491,9 @@ def init_session_state():
         st.session_state.chat_messages = []
 
 def record_audio():
-    """Record audio using streamlit-audio-recorder"""
+    """Record audio using audio-recorder-streamlit"""
     try:
-        audio_bytes = st_audiorec()
+        audio_bytes = audio_recorder()
         if audio_bytes is not None:
             # Convert audio bytes to WAV file
             temp_file = "temp_recording.wav"
