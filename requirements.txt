@@ -8,3 +8,4 @@ groq
 openai
 scipy
 elevenlabs
+streamlit-audio-recorder
