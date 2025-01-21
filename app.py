@@ -490,41 +490,174 @@ def init_session_state():
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
 
-def record_audio(duration=10, sample_rate=44100):
-    """Record audio from microphone"""
-    try:
-        st.info("🎤 Recording... Speak now!")
-        audio_data = sd.rec(int(duration * sample_rate),
-                          samplerate=sample_rate,
-                          channels=1,
-                          dtype='float32')
-        sd.wait()
-        st.success("✓ Recording complete!")
-        return audio_data, sample_rate
-    except Exception as e:
-        st.error(f"Error recording audio: {str(e)}")
-        return None, None
+def record_audio():
+    # Add JavaScript for audio recording
+    st.markdown("""
+        <style>
+        .record-button {
+            background: linear-gradient(135deg, #9D4EDD, #6C63FF);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .record-button:hover {
+            transform: scale(1.1);
+        }
+        .record-button.recording {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        </style>
+        
+        <script>
+        const audioRecorder = {
+            audioBlob: null,
+            mediaRecorder: null,
+            streamBeingCaptured: null,
+            
+            start: async function() {
+                try {
+                    this.streamBeingCaptured = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.mediaRecorder = new MediaRecorder(this.streamBeingCaptured);
+                    const chunks = [];
+                    
+                    this.mediaRecorder.ondataavailable = (e) => {
+                        chunks.push(e.data);
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.audioBlob = new Blob(chunks, { type: 'audio/wav' });
+                        this.streamBeingCaptured.getTracks()
+                            .forEach(track => track.stop());
+                        const audioUrl = URL.createObjectURL(this.audioBlob);
+                        const audio = new Audio(audioUrl);
+                        // Convert to base64 and send to Python
+                        const reader = new FileReader();
+                        reader.readAsDataURL(this.audioBlob);
+                        reader.onloadend = function() {
+                            const base64Audio = reader.result.split(',')[1];
+                            // Send to Streamlit
+                            window.parent.postMessage({
+                                type: 'audio-data',
+                                data: base64Audio
+                            }, '*');
+                        };
+                    };
+                    
+                    this.mediaRecorder.start();
+                    return true;
+                } catch (error) {
+                    console.error('Error starting recording:', error);
+                    return false;
+                }
+            },
+            
+            stop: function() {
+                this.mediaRecorder.stop();
+            }
+        };
+        
+        // Function to handle recording button click
+        async function toggleRecording(button) {
+            if (button.classList.contains('recording')) {
+                // Stop recording
+                button.classList.remove('recording');
+                button.innerHTML = '🎤';
+                audioRecorder.stop();
+            } else {
+                // Start recording
+                const started = await audioRecorder.start();
+                if (started) {
+                    button.classList.add('recording');
+                    button.innerHTML = '⏹️';
+                    // Stop after 10 seconds
+                    setTimeout(() => {
+                        if (button.classList.contains('recording')) {
+                            button.classList.remove('recording');
+                            button.innerHTML = '🎤';
+                            audioRecorder.stop();
+                        }
+                    }, 10000);
+                }
+            }
+        }
+        </script>
+        
+        <button onclick="toggleRecording(this)" class="record-button">🎤</button>
+    """, unsafe_allow_html=True)
+    
+    # Create a placeholder for the transcribed text
+    transcription_placeholder = st.empty()
+    
+    # Handle the audio data from JavaScript
+    if 'audio_data' in st.session_state:
+        audio_data = st.session_state.audio_data
+        try:
+            # Send to OpenAI for transcription
+            import base64
+            import tempfile
+            
+            # Decode base64 audio data
+            audio_bytes = base64.b64decode(audio_data)
+            
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
+                temp_audio.write(audio_bytes)
+                temp_audio_path = temp_audio.name
+            
+            # Transcribe using OpenAI
+            with open(temp_audio_path, 'rb') as audio_file:
+                transcript = openai_client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file
+                )
+            
+            # Clean up temp file
+            import os
+            os.unlink(temp_audio_path)
+            
+            # Display transcribed text
+            transcription_placeholder.text_area("Transcribed Text:", transcript.text, height=100)
+            
+            # Process the transcribed text
+            if transcript.text.strip():
+                if send_text_activity(transcript.text):
+                    st.success("Voice activity logged successfully!")
+                else:
+                    st.error("Error logging voice activity")
+            
+            # Clear the audio data from session state
+            del st.session_state.audio_data
+            
+        except Exception as e:
+            st.error(f"Error processing audio: {str(e)}")
 
-def transcribe_audio(audio_data, sample_rate):
-    """Transcribe audio using OpenAI Whisper"""
-    try:
-        # Save the audio data temporarily
-        temp_file = "temp_recording.wav"
-        sf.write(temp_file, audio_data, sample_rate)
-        
-        # Transcribe using OpenAI Whisper
-        with open(temp_file, "rb") as audio_file:
-            transcript = openai_client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file
-            )
-        
-        # Clean up temp file
-        os.remove(temp_file)
-        return transcript.text
-    except Exception as e:
-        st.error(f"Error transcribing audio: {str(e)}")
-        return None
+# Add JavaScript event listener for audio data
+st.markdown("""
+    <script>
+    window.addEventListener('message', function(e) {
+        if (e.data.type === 'audio-data') {
+            window.parent.postMessage({
+                type: 'streamlit:setComponentValue',
+                data: e.data.data
+            }, '*');
+        }
+    });
+    </script>
+""", unsafe_allow_html=True)
 
 # Initialize session state at the start of the app
 init_session_state()
@@ -625,20 +758,8 @@ else:
                         st.error("Error logging activity")
         
         with voice_tab:
-            col_a, col_b = st.columns([3, 1])
-            with col_a:
-                st.write("Click 'Record' to start recording your activity (10 seconds)")
-            with col_b:
-                if st.button("🎤 Record", key="record_button"):
-                    audio_data, sample_rate = record_audio()
-                    if audio_data is not None:
-                        transcribed_text = transcribe_audio(audio_data, sample_rate)
-                        if transcribed_text:
-                            st.info(f"Transcribed text: {transcribed_text}")
-                            if send_text_activity(transcribed_text):
-                                st.success("Voice activity logged successfully!")
-                            else:
-                                st.error("Error logging voice activity")
+            st.write("Click the microphone button to start recording (10 seconds)")
+            record_audio()
 
     # Right column - Insights and Visualizations
     with col2:

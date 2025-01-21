@@ -6,8 +6,4 @@ pandas
 numpy
 groq
 openai
-sounddevice
-soundfile
-scipy
 elevenlabs
-pyaudio
