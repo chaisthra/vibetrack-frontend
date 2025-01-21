@@ -241,6 +241,65 @@ h1, h2, h3 {
     font-size: 0.9em;
     opacity: 0.8;
 }
+
+/* Audio recorder button styling */
+.audio-recorder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+button.audio-recorder-button {
+    background: linear-gradient(135deg, #9D4EDD, #6C63FF) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 50px !important;
+    height: 50px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(108, 99, 255, 0.2) !important;
+}
+
+button.audio-recorder-button:hover {
+    transform: scale(1.1) !important;
+    box-shadow: 0 6px 20px rgba(108, 99, 255, 0.3) !important;
+}
+
+button.audio-recorder-button[title="Start recording"] {
+    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+}
+
+button.audio-recorder-button[title="Stop recording"] {
+    background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+}
+
+button.audio-recorder-button[title="Reset recording"] {
+    background: linear-gradient(135deg, #ff9800, #f57c00) !important;
+}
+
+button.audio-recorder-button[title="Download recording"] {
+    background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+}
+
+.audio-recorder-status {
+    color: white !important;
+    font-size: 0.9em !important;
+    margin-top: 10px !important;
+}
+
+.audio-recorder-visualizer {
+    background: rgba(45, 45, 68, 0.7) !important;
+    border-radius: 15px !important;
+    padding: 10px !important;
+    margin: 10px 0 !important;
+    backdrop-filter: blur(10px) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
